@@ -1,0 +1,1 @@
+1) Programme basique avec Makefile pour créer la libft et la libft_malloc et faire un simple putstr pour voir si tout est opérationnel

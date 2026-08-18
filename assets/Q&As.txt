@@ -1,0 +1,86 @@
+GENERAL INSTRUCTIONS :
+
+- Nom des fonctions est le même que dans la libc. Pourquoi et comment le gérer ?
+Même nom + même prototype = compatibilité avec les programmes existants.
+Bibliothèque dynamique + interposition de symbole = possibilité de remplacer l'implémentation standard sans modifier le programme.
+
+- Qu'est-ce qu'un librairie .so ? Pourquoi l'utiliser ?
+C'est une bibliothèque partagée.
+malloc.c
+free.c
+realloc.c
+   │
+   │ compilation + édition de liens
+   ▼
+libft_malloc_x86_64_Linux.so
+Le linker (ld) intervient lors de la construction d'un exécutable ou d'une bibliothèque. Il s'occupe de l'édition de liens.
+Le dynamic loader intervient au lancement d'un programme et charge les bibliothèques partagées dont celui-ci a besoin. Sous Linux, c'est notamment ce mécanisme qui nous permettra de dire : pour le symbole malloc, utilise celui de cette .so plutôt que celui normalement fourni par libc.
+Par exemple, en principe, on pourrait prendre un programme déjà compilé utilisant malloc, charger laa .so avant libc et lui faire utiliser notre implémentation sans toucher à son code source.
+
+- Pourquoi créer un symlink libft_malloc.so vers libft_malloc_$HOSTTYPE.so ?
+C'est essentiellement pour avoir à la fois un nom spécifique à la plateforme et un nom stable pour utiliser la bibliothèque.
+libft_malloc_$HOSTTYPE.so = véritable artefact compilé spécifique à la plateforme.
+libft_malloc.so = point d'entrée pratique et stable vers cet artefact.
+Ça nous donnera quelque chose de très concret à manipuler quand on fera notre premier Makefile : ln -s, ls -l, $HOSTTYPE et uname suffiront à rendre tout ça beaucoup moins abstrait.
+
+- Comprendre la notion de "thread safety".
+    -> Qu'est-ce qu'un thread ?
+    Dans un même processus, plusieurs threads peuvent exécuter du code simultanément.
+    Les threads ont chacun leur propre contexte d'exécution (notamment état de la pile et état nécessaire à leur exécution) mais partagent l'espace mémoire du processus.
+    Si deux threads font un appel à notre malloc(), ils peuvent le corrompre si ce dernier n'est pas protégé.
+    Des appels à malloc, free ou realloc peuvent avoir lieu à tout moment et il faut protéger la mémoire.
+
+ALLOWED FUNCTIONS :
+
+- mmap
+
+- munmap
+
+- sysconf
+
+- getrlimit
+
+MADATORY PART :
+
+- fonctions à coder :
+    #include <stdlib.h>
+    void free(void *ptr); 
+    void *malloc(size_t size);
+    void *realloc(void *ptr, size_t size);
+
+- performance : idée de limiter les appels à mmap() et munmap().
+    -> On fait des pré-allocations au démarrage du programme ?
+
+    -> Au premier appel de la fonction ?
+
+    -> C'est comme ça que fonctionne malloc ?
+
+
+- on appelle sysconf(_SC_PAGESIZ) pour avoir la taille d'une "page"
+    -> qu'est-ce qu'une page ?
+
+    -> s'agit-il du fonctionnement de malloc ?
+
+
+- on part donc avec deux zones : small et medium, dont la taille est un multiple de la taille d'une page.
+    -> TINY de 1 à n bytes, stockés dans une zone de taille N bytes
+
+    -> SMALL de n+1 à m bytes, stockés dans une zone de taille M bytes
+
+    -> LARGE pour m+1 et plus se trouveront en dehors de ces zones : utilisation de mmap() pour obtenir ces zones
+
+
+- que se passe-t-il si on a trop d'allocation dans la zone small ou medium ? Agrandit-on la zone ou fait-on un nouvel appel à mmap() ?
+
+- comment choisir les tailles N et M ? On parle de compromis entre vitesse et utilisation de la mémoire.
+
+- autour de la fonction show_alloc_mem() :
+    -> montre les pointeurs déjà occupés ?
+
+    -> notre malloc permet un suivi constant de toutes les zones mémoires qu'il a offert ? Possibilité d'en faire un garbage collector ?
+
+- que signifie la phrase "You must properly align the memory returned by your malloc" ?
+
+BONUS :
+
+- plusieurs bonus, peut-on penser le projet sans eux ?
