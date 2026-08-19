@@ -1,27 +1,27 @@
 GENERAL INSTRUCTIONS :
 
 - Nom des fonctions est le même que dans la libc. Pourquoi et comment le gérer ?
-Même nom + même prototype = compatibilité avec les programmes existants.
-Bibliothèque dynamique + interposition de symbole = possibilité de remplacer l'implémentation standard sans modifier le programme.
+    Même nom + même prototype = compatibilité avec les programmes existants.
+    Bibliothèque dynamique + interposition de symbole = possibilité de remplacer l'implémentation standard sans modifier le programme.
 
 - Qu'est-ce qu'un librairie .so ? Pourquoi l'utiliser ?
-C'est une bibliothèque partagée.
-malloc.c
-free.c
-realloc.c
-   │
-   │ compilation + édition de liens
-   ▼
-libft_malloc_x86_64_Linux.so
-Le linker (ld) intervient lors de la construction d'un exécutable ou d'une bibliothèque. Il s'occupe de l'édition de liens.
-Le dynamic loader intervient au lancement d'un programme et charge les bibliothèques partagées dont celui-ci a besoin. Sous Linux, c'est notamment ce mécanisme qui nous permettra de dire : pour le symbole malloc, utilise celui de cette .so plutôt que celui normalement fourni par libc.
-Par exemple, en principe, on pourrait prendre un programme déjà compilé utilisant malloc, charger laa .so avant libc et lui faire utiliser notre implémentation sans toucher à son code source.
+    C'est une bibliothèque partagée.
+    malloc.c
+    free.c
+    realloc.c
+    │
+    │ compilation + édition de liens
+    ▼
+    libft_malloc_x86_64_Linux.so
+    Le linker (ld) intervient lors de la construction d'un exécutable ou d'une bibliothèque. Il s'occupe de l'édition de liens.
+    Le dynamic loader intervient au lancement d'un programme et charge les bibliothèques partagées dont celui-ci a besoin. Sous Linux, c'est notamment ce mécanisme qui nous permettra de dire : pour le symbole malloc, utilise celui de cette .so plutôt que celui normalement fourni par libc.
+    Par exemple, en principe, on pourrait prendre un programme déjà compilé utilisant malloc, charger laa .so avant libc et lui faire utiliser notre implémentation sans toucher à son code source.
 
 - Pourquoi créer un symlink libft_malloc.so vers libft_malloc_$HOSTTYPE.so ?
-C'est essentiellement pour avoir à la fois un nom spécifique à la plateforme et un nom stable pour utiliser la bibliothèque.
-libft_malloc_$HOSTTYPE.so = véritable artefact compilé spécifique à la plateforme.
-libft_malloc.so = point d'entrée pratique et stable vers cet artefact.
-Ça nous donnera quelque chose de très concret à manipuler quand on fera notre premier Makefile : ln -s, ls -l, $HOSTTYPE et uname suffiront à rendre tout ça beaucoup moins abstrait.
+    C'est essentiellement pour avoir à la fois un nom spécifique à la plateforme et un nom stable pour utiliser la bibliothèque.
+    libft_malloc_$HOSTTYPE.so = véritable artefact compilé spécifique à la plateforme.
+    libft_malloc.so = point d'entrée pratique et stable vers cet artefact.
+    Ça nous donnera quelque chose de très concret à manipuler quand on fera notre premier Makefile : ln -s, ls -l, $HOSTTYPE et uname suffiront à rendre tout ça beaucoup moins abstrait.
 
 - Comprendre la notion de "thread safety".
     -> Qu'est-ce qu'un thread ?
@@ -50,14 +50,44 @@ MADATORY PART :
 
 - performance : idée de limiter les appels à mmap() et munmap().
     -> On fait des pré-allocations au démarrage du programme ?
+        On doit avoir une construction du type :
+        TINY
+        ├── zone 1
+        ├── zone 2
+        └── ...
+
+        SMALL
+        ├── zone 1
+        ├── zone 2
+        └── ...
+
+        LARGE
+        ├── allocation 1 = son propre mmap
+        ├── allocation 2 = son propre mmap
+        └── ...
 
     -> Au premier appel de la fonction ?
+        On pourrait faire comme ça, mais on peut tout aussi bien ne demander les zones qu'au moment où elles sont nécessaires.
+        Par exemple, l'utilisateur fait un appel malloc(12), on constate qu'on n'a pas de zone TINY, on la crée et on va se servir de cette zone pour lui renvoyer un pointeur.
+        NOTE : on ne peut pas s'appuyer sur une variable statique.
+        malloc()  ─┐
+        free()    ─┼──> même état interne
+        realloc() ─┘
+        Notre structure de données doit persister entre les fonctions et pas seulement lors des appels successifs à malloc.
+        L'allocateur possède un état persistant partagé par toute son API.
 
     -> C'est comme ça que fonctionne malloc ?
+        C'est une version simplifiée dans un but pédagogique, mais les grands principes restent comparables.
+
 
 
 - on appelle sysconf(_SC_PAGESIZ) pour avoir la taille d'une "page"
     -> qu'est-ce qu'une page ?
+        1) Notre processus manipuledes adresses virtuelles, pas directement la RAM
+        2) L'espace d'adressage virtuel est géré par des unités appelées pages
+        3) mmap() permet notamment de créer des mappings/régions dans cet espace d'adressage
+        4) Lorsque notre allocateur demande de grandes zones au système, la page est une unité naturelle
+        
 
     -> s'agit-il du fonctionnement de malloc ?
 
